@@ -14,11 +14,31 @@
   t/IBox
   (getVal [this] val))
 
+
+(sci/eval-string "((fn a [n] (if (= n 0) 42 (a (dec n)))) 20)" {:realize-max 19})
+(sci/eval-string "(loop [n 100] (if (zero? n) 42 (recur (dec n))))" {:realize-max 10})
+(sci/eval-string "(loop [n 100] (if (zero? n) 42 (recur (dec n))))" {:realize-max 1000})
+
+(sci/eval-string "((fn a [n] (if (#{0 1} n) 1 (+ (a (- n 2)) (a (- n 1)))))  40)" {:realize-max 1000})
+
 (defn parse-fn-args+body
   [ctx interpret eval-do*
    {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
    fn-name macro? with-meta?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
+
+        safety-fn (if-let [counter (get ctx :realize-max-counter)]
+                    (fn []
+                      (when (zero? (swap! counter dec))
+                        (throw (ex-info "Exceeded max count" {:count (get ctx :realize-max)}))))
+                    (constantly nil))
+
+        eval-body
+        (if (= 1 (count body))
+          (let [first-body (first body)]
+            (fn [ctx] (safety-fn) (interpret ctx first-body))
+            (fn [ctx] (safety-fn) (eval-do* ctx body))))
+
         f (fn run-fn [& args]
             (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                   bindings (:bindings ctx)
@@ -40,9 +60,7 @@
                           (throw-arity fn-name macro? args))
                         ret)))
                   ctx (assoc ctx :bindings bindings)
-                  ret (if (= 1 (count body))
-                        (interpret ctx (first body))
-                        (eval-do* ctx body))
+                  ret (eval-body ctx)
                   ;; m (meta ret)
                   recur? (instance? Recur ret)]
               (if recur?

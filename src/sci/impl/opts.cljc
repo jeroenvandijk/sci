@@ -100,14 +100,17 @@
         imports (merge default-imports imports)
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports load-fn)
+        realize-max (or realize-max (:realize-max preset))
         ctx (merge {:env env
                     :bindings {}
                     :allow (process-permissions (:allow preset) allow)
                     :deny (process-permissions (:deny preset) deny)
-                    :realize-max (or realize-max (:realize-max preset))
+                    :realize-max realize-max
                     :features features
                     :dry-run dry-run
                     :readers readers
                     ::ctx true}
-                   (normalize-classes (merge default-classes classes)))]
+                   (normalize-classes (merge default-classes classes))
+                   (when realize-max
+                     {:realize-max-counter (atom realize-max)}))]
     ctx))
