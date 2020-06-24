@@ -1,0 +1,17 @@
+;; borrowed from axel-f with lots of with gratitute
+;; https://github.com/xapix-io/axel-f/blob/9bb72e13699b9559142392c4fa19041b1d072244/axel_f.min.js.edn
+{:output-to "out/min/sci.min.exports.js"
+ :output-dir "out/min"
+ :optimizations :advanced
+ :main "sci.impl.exports"
+ :aot-cache true
+ :compiler-stats true
+ :pretty-print  false
+ :elide-asserts true
+ :parallel-build true
+ :checked-arrays :warn
+ :static-fns true
+ :fn-invoke-direct true
+ :warnings {:fn-deprecated false}
+ :optimize-constants true
+ :output-wrapper "%s"}

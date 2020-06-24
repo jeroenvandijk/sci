@@ -1,9 +1,12 @@
 (ns sci.impl.js
   "JavaScript interface to sci."
   {:no-doc true}
+  (:require-macros
+    [sci.macros  :refer [sci-export]])
   (:require
    [goog.object :as gobject]
-   [sci.core :as sci]))
+   [sci.core :as sci]
+   ))
 
 (defn map-vals [f m]
   (reduce-kv (fn [m k v] (assoc m k (f v))) {} m))
@@ -45,6 +48,13 @@
      :realize-max realize-max
      :classes classes
      :env env}))
+
+;; Use the namespaces some how, not sure if the internal will break. Might be asking too much and too risky
+; (sci-export cljs.core/PersistentHashMap)    
+; (sci-export cljs.core/PersistentHashSet)
+; (sci-export cljs.core/PersistentArrayMap)
+; (sci-export cljs.core/PersistentVector)
+ 
 
 (defn ^:export toJS [v]
   (if (instance? MetaFn v)

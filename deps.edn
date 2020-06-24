@@ -19,7 +19,12 @@
    :main-opts ["-m" "cljs-test-runner.main" "-d" "test"]}
   :cljs-build
   {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.520"}}
-   :main-opts ["-m" "cljs.main" "-co" "min.js.edn" "-c"]}
+   :main-opts ["-m" "cljs.main" "-co" "min.js.edn" "-c"]
+   :paths ["resources" "src" "src-cljs"]}
+  :cljs-build-externs
+  {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.520"}}
+   :main-opts ["-m" "cljs.main" "-co" "min.export.js.edn" "-c"]
+   :paths ["resources" "src" "src-cljs"]}
   :profile
   {:extra-deps
    {com.clojure-goes-fast/clj-async-profiler {:mvn/version "0.4.0"}}
