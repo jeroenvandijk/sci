@@ -43,18 +43,54 @@
                  (js/Reflect.apply method obj args))
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
-      [[ctx bindings obj ^Class target-class method ^objects args arg-count arg-types]
-       (let [^java.util.List methods
-             (meth-cache ctx target-class method arg-count #(reflector/get-methods target-class arg-count method false) :instance-methods)
-             zero-args? (zero? arg-count)]
-         (if (and zero-args? (.isEmpty ^java.util.List methods))
-           (invoke-instance-field obj target-class method)
-           (do (let [args-array (object-array arg-count)]
-                 (areduce args idx _ret nil
-                          (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
-                 ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
-                 ;; See getMatchingMethod in Reflector
-                 (reflector/invoke-matching-method method methods target-class obj args-array arg-types)))))]))
+      [[ctx bindings obj ^Class orig-class method ^objects args arg-count arg-types]
+       
+       (letfn [(invoke-method [target-class]                 
+                 (let [^java.util.List methods
+                       (meth-cache ctx target-class method arg-count #(reflector/get-methods target-class arg-count method false) :instance-methods)
+                       zero-args? (zero? arg-count)]
+                   (if (and zero-args? (.isEmpty ^java.util.List methods))
+                     (invoke-instance-field obj target-class method)
+                     (do (let [args-array (object-array arg-count)]
+                           (areduce args idx _ret nil
+                                    (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+                           ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
+                           ;; See getMatchingMethod in Reflector
+                           (reflector/invoke-matching-method method methods target-class obj args-array arg-types))))))               
+               (build-instance-method [target-class]
+                 (let [env @(:env ctx)
+                       class->opts (:class->opts env)
+                       all-instance-methods-allowed? (:allow class->opts)
+                       target-class-name (.getName ^Class target-class)
+                       instance-class-symbol (symbol target-class-name)
+                       class-config (get class->opts instance-class-symbol)]
+                   (if all-instance-methods-allowed?
+                     (fn [] (invoke-method target-class))
+                     (if (some? class-config)
+                       (if-some [instance-method-config (:instance-methods class-config)]
+                         (throw (ex-info "TODO instance methods" {}))
+                         (fn [] (invoke-method target-class)))
+                       nil))))
+
+               (get-instance-method [target-class]
+                 (let [cname (.getName ^Class target-class)
+                       *env (:env ctx)
+                       env @*env
+                       [_ method-fn]                       
+                       (or (-> env :instance-method-fns (get cname) (get method) (find arg-count))
+                           (let [meth-fn (build-instance-method target-class)]
+                             ;; TODO implement caching (needs correct forwarding of bindings etc)
+                             #_(swap! *env assoc-in [:instance-method-fns cname method arg-count] meth-fn)
+                             [:build meth-fn]))]
+                   method-fn))]
+
+         (let [env @(:env ctx)]
+           
+           (if-some [f (or (get-instance-method orig-class)
+                           (when-let [f (:public-class env)]
+                             (some-> (f obj) (get-instance-method))))]
+             (f)
+             (sci.impl.utils/throw-error-with-location (str "Method " method " on " orig-class " not allowed!") obj))))]))
 
 (defn get-static-field [^Class class field-name-sym]
   #?(:clj (reflector/get-static-field class (str field-name-sym))

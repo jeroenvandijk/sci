@@ -174,27 +174,12 @@
                                             tag-class
                                             (class instance-expr*)))
                                         (class instance-expr*))
-                              :cljs (type instance-expr*))
-            env @(:env ctx)
-            class->opts (:class->opts env)
-            allowed? (or
-                      #?(:cljs allowed)
-                      (get class->opts :allow)
-                      (let [instance-class-name #?(:clj (.getName ^Class instance-class)
-                                                   :cljs (.-name instance-class))
-                            instance-class-symbol (symbol instance-class-name)]
-                        (get class->opts instance-class-symbol)))
-            ^Class target-class (if allowed? instance-class
-                                    (when-let [f (:public-class env)]
-                                      (f instance-expr*)))]
+                              :cljs (type instance-expr*))]
         ;; we have to check options at run time, since we don't know what the class
         ;; of instance-expr is at analysis time
-        (when-not #?(:clj target-class
-                     :cljs allowed?)
-          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
         (if field-access
-          (interop/invoke-instance-field instance-expr* target-class method-str)
-          (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))
+          (interop/invoke-instance-field instance-expr* instance-class method-str)
+          (interop/invoke-instance-method ctx bindings instance-expr* instance-class method-str args arg-count arg-types))))))
 
 ;;;; End interop
 
